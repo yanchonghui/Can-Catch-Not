@@ -1,0 +1,6 @@
+{
+  "name": "Can Catch Not?",
+  "description": "Singapore smart bus departure tracker with leave-by countdowns, LTA DataMall real-time ETAs, 1-hour rain alerts, and iOS widgets.",
+  "requestFramePermissions": ["geolocation", "notifications"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
