@@ -528,6 +528,21 @@ export const DEFAULT_SAVED_ROUTES: SavedRoute[] = [
     createdAt: Date.now() - 60000
   },
   {
+    id: 'sr-tampines-north-75541',
+    busStopCode: '75541',
+    busStopName: 'Opp Blk 648A',
+    roadName: 'Tampines St 62',
+    lat: 1.368309,
+    lng: 103.941523,
+    selectedBuses: ['298', '454'],
+    customTag: 'Tampines North (LTA DataMall)',
+    walkingSpeed: 'normal',
+    manualWalkMinutes: 3,
+    alertMinutesBeforeLeave: 3,
+    isPinned: true,
+    createdAt: Date.now() - 50000
+  },
+  {
     id: 'sr-jurong-east',
     busStopCode: '28009',
     busStopName: 'Jurong East Bus Interchange',

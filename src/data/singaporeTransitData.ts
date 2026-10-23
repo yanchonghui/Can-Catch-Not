@@ -93,6 +93,30 @@ export const SINGAPORE_BUS_STOPS: BusStop[] = [
 
   // East / Tampines / Bedok / Changi
   {
+    id: '75541',
+    name: 'Opp Blk 648A',
+    road: 'Tampines St 62',
+    lat: 1.368309,
+    lng: 103.941523,
+    services: ['298', '454']
+  },
+  {
+    id: '75549',
+    name: 'Blk 648A',
+    road: 'Tampines St 62',
+    lat: 1.368222,
+    lng: 103.941641,
+    services: ['298', '454']
+  },
+  {
+    id: '74009',
+    name: 'Tampines Nth Int',
+    road: 'Tampines St 62',
+    lat: 1.368916,
+    lng: 103.939651,
+    services: ['18', '18A', '129', '298', '299', '454']
+  },
+  {
     id: '75009',
     name: 'Tampines Bus Interchange',
     road: 'Tampines Ave 4',

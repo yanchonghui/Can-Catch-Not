@@ -4,7 +4,6 @@ import {
   Search, 
   Bell, 
   SlidersHorizontal, 
-  Smartphone, 
   RefreshCw, 
   Download,
   Palette,
@@ -39,12 +38,11 @@ import {
 import { SINGAPORE_BUS_STOPS } from './data/singaporeTransitData';
 
 import { LocationBar } from './components/LocationBar';
-import { WeatherWidget } from './components/WeatherWidget';
+import { WeatherCard } from './components/WeatherCard';
 import { LiveActivityBanner } from './components/LiveActivityBanner';
 import { SavedRoutesView } from './components/SavedRoutesView';
 import { RoutePeekModal } from './components/RoutePeekModal';
 import { SearchAndAddModal } from './components/SearchAndAddModal';
-import { WidgetsModal } from './components/WidgetsModal';
 import { NotificationSettingsSheet } from './components/NotificationSettingsSheet';
 import { EditBusesModal } from './components/EditBusesModal';
 import { PWAInstallSheet } from './components/PWAInstallSheet';
@@ -64,7 +62,20 @@ export default function App() {
   const [savedRoutes, setSavedRoutes] = useState<SavedRoute[]>(() => {
     try {
       const stored = localStorage.getItem(STORAGE_KEYS.SAVED_ROUTES);
-      if (stored) return JSON.parse(stored);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          // If stored doesn't have 75541, include it so the user can test immediately
+          const has75541 = parsed.some((r: any) => r.busStopCode === '75541');
+          if (!has75541) {
+            const default75541 = DEFAULT_SAVED_ROUTES.find((r) => r.busStopCode === '75541');
+            if (default75541) {
+              return [default75541, ...parsed];
+            }
+          }
+          return parsed;
+        }
+      }
     } catch (e) {
       // ignore
     }
@@ -149,7 +160,6 @@ export default function App() {
   // Modals state
   const [peekRouteParams, setPeekRouteParams] = useState<{ serviceNo: string; busStopCode: string } | null>(null);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
-  const [isWidgetsModalOpen, setIsWidgetsModalOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isPWAInstallOpen, setIsPWAInstallOpen] = useState(false);
   const [routeToEdit, setRouteToEdit] = useState<SavedRoute | null>(null);
@@ -664,13 +674,6 @@ export default function App() {
               <span>Radar Map</span>
             </button>
             <button
-              onClick={() => setIsWidgetsModalOpen(true)}
-              className="px-3.5 py-2 rounded-full clay-pill-white text-[#332F3A] hover:text-[#7C3AED] transition-colors whitespace-nowrap flex items-center gap-1.5 font-extrabold"
-            >
-              <span>iOS Widgets</span>
-              <span className="text-[10px] clay-badge-lavender px-1.5 py-0.2">iOS</span>
-            </button>
-            <button
               onClick={() => setIsSettingsOpen(true)}
               className="px-3.5 py-2 rounded-full clay-pill-white text-[#332F3A] hover:text-[#DB2777] transition-colors whitespace-nowrap font-extrabold"
             >
@@ -740,7 +743,6 @@ export default function App() {
                 leaveCalc={primaryBus.leaveCalc}
                 nextBus={primaryBus.nextBus}
                 umbrellaNeeded={weather.umbrellaAdvice.bringUmbrella}
-                onOpenWidgetsModal={() => setIsWidgetsModalOpen(true)}
                 onRefresh={handleManualRefresh}
               />
             )}
@@ -756,7 +758,7 @@ export default function App() {
 
           {/* Weather & 1-Hour Forecast Module: 5 columns */}
           <div className="lg:col-span-5">
-            <WeatherWidget
+            <WeatherCard
               weather={weather}
               isRainAlertEnabled={rainAlertEnabled}
               onToggleRainAlert={handleToggleRainAlert}
@@ -844,14 +846,6 @@ export default function App() {
           </button>
 
           <button
-            onClick={() => setIsWidgetsModalOpen(true)}
-            className="flex flex-col items-center gap-0.5 text-slate-500 hover:text-purple-600 font-bold py-1.5 px-3 rounded-full hover:bg-purple-50 transition-colors"
-          >
-            <Smartphone className="w-5 h-5" />
-            <span className="text-[10px]">Widgets</span>
-          </button>
-
-          <button
             onClick={() => setIsPWAInstallOpen(true)}
             className="flex flex-col items-center gap-0.5 text-slate-500 hover:text-emerald-600 font-bold py-1.5 px-3 rounded-full hover:bg-emerald-50 transition-colors"
           >
@@ -893,37 +887,6 @@ export default function App() {
           route={routeToEdit}
           onClose={() => setRouteToEdit(null)}
           onSave={handleUpdateRoute}
-        />
-      )}
-
-      {/* Widgets Modal */}
-      {isWidgetsModalOpen && (
-        <WidgetsModal
-          onClose={() => setIsWidgetsModalOpen(false)}
-          serviceNo={primaryBus?.serviceNo || '65'}
-          busStopName={primaryBus?.busStopName || 'Dhoby Ghaut Stn'}
-          busStopCode={primaryBus?.busStopCode || '08057'}
-          leaveCalc={
-            primaryBus?.leaveCalc || {
-              serviceNo: '65',
-              busStopCode: '08057',
-              busArrivalMinutes: 8,
-              walkingMinutes: 4,
-              bufferMinutes: 1,
-              leaveInMinutes: 3,
-              leaveInSeconds: 180,
-              leaveByTimeFormatted: '1:14 PM',
-              urgency: 'soon',
-              urgencyLabel: 'Pack up soon',
-              nextOption: {
-                arrivalMinutes: 18,
-                leaveInMinutes: 13,
-                leaveByTimeFormatted: '1:24 PM'
-              }
-            }
-          }
-          nextBus={primaryBus?.nextBus}
-          weather={weather}
         />
       )}
 

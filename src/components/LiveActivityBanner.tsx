@@ -9,7 +9,6 @@ interface LiveActivityBannerProps {
   leaveCalc: LeaveCalculation;
   nextBus?: NextBusArrival;
   umbrellaNeeded: boolean;
-  onOpenWidgetsModal: () => void;
   onRefresh?: () => void;
 }
 
@@ -20,7 +19,6 @@ export const LiveActivityBanner: React.FC<LiveActivityBannerProps> = ({
   leaveCalc,
   nextBus,
   umbrellaNeeded,
-  onOpenWidgetsModal,
   onRefresh
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
@@ -180,14 +178,6 @@ export const LiveActivityBanner: React.FC<LiveActivityBannerProps> = ({
                 <Umbrella className={`w-3.5 h-3.5 ${umbrellaNeeded ? 'text-pink-500' : 'text-slate-400'}`} />
                 <span>{umbrellaNeeded ? 'Rain in 1h (take umbrella! ☂️)' : 'Weather clear ☀️'}</span>
               </div>
-
-              <button
-                onClick={onOpenWidgetsModal}
-                className="text-xs text-purple-600 hover:text-purple-700 font-black flex items-center gap-1 cursor-pointer"
-              >
-                <span>Preview iOS Widgets</span>
-                <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-              </button>
             </div>
           </div>
         )}

@@ -2,14 +2,14 @@ import React from 'react';
 import { CloudRain, Sun, Cloud, CloudLightning, Umbrella, Bell, BellRing, Droplets, Wind, Sparkles } from 'lucide-react';
 import { WeatherInfo } from '../types/transit';
 
-interface WeatherWidgetProps {
+interface WeatherCardProps {
   weather: WeatherInfo;
   isRainAlertEnabled: boolean;
   onToggleRainAlert: () => void;
   onTestRainNotification: () => void;
 }
 
-export const WeatherWidget: React.FC<WeatherWidgetProps> = ({
+export const WeatherCard: React.FC<WeatherCardProps> = ({
   weather,
   isRainAlertEnabled,
   onToggleRainAlert,

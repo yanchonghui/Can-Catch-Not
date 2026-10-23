@@ -5,6 +5,16 @@ import type { Request, Response } from 'express';
 import path from 'path';
 import dotenv from 'dotenv';
 import http from 'http';
+import {
+  initializeLtaService,
+  searchLtaData,
+  getNearestBusStops,
+  getLiveBusArrivals,
+  getBusStopByCode,
+  getAllBusStops,
+  getLtaSyncStatus,
+  ingestLtaData
+} from './server/ltaService.ts';
 
 dotenv.config();
 
@@ -13,73 +23,118 @@ const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3000;
 
 app.use(express.json());
 
-// Server-side cache to enforce low data usage and fast response
-const arrivalCache = new Map<string, { timestamp: number; data: any }>();
-const CACHE_TTL_MS = 8000; // 8 seconds cache to optimize bandwidth
-
-const DEFAULT_LTA_KEY = 'LQcDSpOhQGyKlvfSVGEg9Q==';
+const DEFAULT_LTA_KEY = process.env.LTA_DATAMALL_API_KEY || 'LQcDSpOhQGyKlvfSVGEg9Q==';
 
 /**
- * Proxy / API for LTA DataMall BusArrivalv2
+ * 1. Search bus stops and services dynamically from ingested LTA Master Data
+ * Supports queries for stop code (e.g. "75541"), service number (e.g. "298"), road, or description
+ */
+app.get('/api/lta/search', async (req: Request, res: Response) => {
+  try {
+    const q = (req.query.q as string) || '';
+    const limit = parseInt(req.query.limit as string) || 30;
+    const apiKey = (req.headers['x-lta-account-key'] as string) || DEFAULT_LTA_KEY;
+
+    const data = await searchLtaData(q, limit, apiKey);
+    return res.json({
+      status: 'ok',
+      ...data,
+      _source: 'lta_datamall_ingested'
+    });
+  } catch (err: any) {
+    console.error('LTA search endpoint error:', err);
+    return res.status(500).json({ status: 'error', message: err.message });
+  }
+});
+
+/**
+ * 2. Get bus stops (either nearest based on lat/lng or master list)
+ */
+app.get('/api/lta/bus-stops', (req: Request, res: Response) => {
+  try {
+    const lat = req.query.lat ? parseFloat(req.query.lat as string) : undefined;
+    const lng = req.query.lng ? parseFloat(req.query.lng as string) : undefined;
+    const limit = parseInt(req.query.limit as string) || 30;
+
+    if (lat !== undefined && lng !== undefined && !isNaN(lat) && !isNaN(lng)) {
+      const nearest = getNearestBusStops(lat, lng, limit);
+      return res.json({ status: 'ok', stops: nearest });
+    }
+
+    const stops = getAllBusStops(limit);
+    return res.json({ status: 'ok', stops });
+  } catch (err: any) {
+    return res.status(500).json({ status: 'error', message: err.message });
+  }
+});
+
+/**
+ * 3. Get single bus stop by code
+ */
+app.get('/api/lta/bus-stops/:code', async (req: Request, res: Response) => {
+  try {
+    const code = req.params.code;
+    const apiKey = (req.headers['x-lta-account-key'] as string) || DEFAULT_LTA_KEY;
+    const stop = await getBusStopByCode(code, apiKey);
+
+    if (!stop) {
+      return res.status(404).json({ status: 'error', message: `Bus stop ${code} not found` });
+    }
+
+    return res.json({ status: 'ok', stop });
+  } catch (err: any) {
+    return res.status(500).json({ status: 'error', message: err.message });
+  }
+});
+
+/**
+ * 4. Real-time Bus Arrival estimates (LTA DataMall official endpoint /v3/BusArrival)
  */
 app.get('/api/lta/bus-arrival', async (req: Request, res: Response) => {
   const busStopCode = (req.query.busStopCode as string) || '08057';
   const serviceNo = req.query.serviceNo as string | undefined;
-  const apiKey = (req.headers['x-lta-account-key'] as string) || process.env.LTA_DATAMALL_API_KEY || DEFAULT_LTA_KEY;
+  const apiKey = (req.headers['x-lta-account-key'] as string) || DEFAULT_LTA_KEY;
 
-  const cacheKey = `${busStopCode}_${serviceNo || 'ALL'}`;
-  const cached = arrivalCache.get(cacheKey);
-
-  if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
+  try {
+    const data = await getLiveBusArrivals(busStopCode, serviceNo, apiKey);
+    return res.json(data);
+  } catch (err: any) {
+    console.error('Bus arrival error:', err);
     return res.json({
-      ...cached.data,
-      _fromCache: true,
-      _cachedAt: cached.timestamp
+      BusStopCode: busStopCode,
+      Services: [],
+      _source: 'live_engine'
     });
   }
+});
 
-  // If user has provided an LTA API key, call the real DataMall API
-  if (apiKey && apiKey.trim().length > 10) {
-    try {
-      let url = `http://datamall2.mytransport.sg/ltaodataservice/BusArrivalv2?BusStopCode=${encodeURIComponent(busStopCode)}`;
-      if (serviceNo) {
-        url += `&ServiceNo=${encodeURIComponent(serviceNo)}`;
-      }
-
-      const response = await fetch(url, {
-        headers: {
-          AccountKey: apiKey.trim(),
-          accept: 'application/json'
-        }
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        arrivalCache.set(cacheKey, { timestamp: Date.now(), data });
-        return res.json({ ...data, _source: 'lta_datamall' });
-      }
-    } catch (err) {
-      console.warn('LTA Datamall API request failed, falling back to local engine:', err);
-    }
-  }
-
-  // Return standard response indicating client engine will serve live updates
-  return res.json({
-    BusStopCode: busStopCode,
-    Services: [],
-    _source: 'live_engine'
+/**
+ * 5. LTA Master Ingestion Status & Health
+ */
+app.get('/api/lta/status', (_req: Request, res: Response) => {
+  res.json({
+    status: 'ok',
+    sync: getLtaSyncStatus()
   });
 });
 
 /**
- * Weather endpoint for Singapore locations
+ * 6. Trigger manual background sync with official LTA DataMall API
+ */
+app.post('/api/lta/sync', (req: Request, res: Response) => {
+  const apiKey = (req.headers['x-lta-account-key'] as string) || DEFAULT_LTA_KEY;
+  ingestLtaData(apiKey).catch(console.error);
+  return res.json({
+    status: 'started',
+    message: 'LTA DataMall dynamic master sync running in background'
+  });
+});
+
+/**
+ * 7. Weather endpoint for Singapore locations
  */
 app.get('/api/weather', async (req: Request, res: Response) => {
   try {
-    const lat = parseFloat(req.query.lat as string) || 1.2993;
-    const lng = parseFloat(req.query.lng as string) || 103.8453;
-
-    // Optional fetch to data.gov.sg 2-hour weather forecast
     const govUrl = 'https://api.data.gov.sg/v1/environment/2-hour-weather-forecast';
     const govRes = await fetch(govUrl).catch(() => null);
 
@@ -95,6 +150,9 @@ app.get('/api/weather', async (req: Request, res: Response) => {
 });
 
 async function main() {
+  // Initialize master bus stops and services dataset
+  await initializeLtaService();
+
   if (process.env.NODE_ENV === 'production') {
     app.use(express.static(path.resolve('dist')));
     app.get('*', (_req, res) => {
@@ -106,7 +164,6 @@ async function main() {
   } else {
     const { createServer: createViteServer } = await import('vite');
     const httpServer = http.createServer(app);
-    const isHmrDisabled = process.env.DISABLE_HMR === 'true';
 
     const vite = await createViteServer({
       server: {
