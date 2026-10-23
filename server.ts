@@ -1,9 +1,10 @@
 process.env.DISABLE_HMR = 'true';
 
-import express, { Request, Response } from 'express';
-import { createServer as createViteServer } from 'vite';
+import express from 'express';
+import type { Request, Response } from 'express';
 import path from 'path';
 import dotenv from 'dotenv';
+import http from 'http';
 
 dotenv.config();
 
@@ -93,8 +94,6 @@ app.get('/api/weather', async (req: Request, res: Response) => {
   return res.json({ status: 'fallback', message: 'Local forecast active' });
 });
 
-import http from 'http';
-
 async function main() {
   if (process.env.NODE_ENV === 'production') {
     app.use(express.static(path.resolve('dist')));
@@ -105,6 +104,7 @@ async function main() {
       console.log(`Can Catch Not? running on http://localhost:${PORT}`);
     });
   } else {
+    const { createServer: createViteServer } = await import('vite');
     const httpServer = http.createServer(app);
     const isHmrDisabled = process.env.DISABLE_HMR === 'true';
 

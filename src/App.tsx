@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { 
   Bus, 
   Search, 
@@ -7,7 +7,10 @@ import {
   Smartphone, 
   RefreshCw, 
   Download,
-  Palette
+  Palette,
+  MapPin,
+  Map as MapIcon,
+  Navigation
 } from 'lucide-react';
 
 import { 
@@ -16,7 +19,8 @@ import {
   NextBusArrival, 
   LeaveCalculation, 
   WeatherInfo,
-  ThemePalette
+  ThemePalette,
+  BusStop
 } from './types/transit';
 
 import { 
@@ -26,8 +30,12 @@ import {
   calculateWalkMinutes, 
   calculateLeaveStatus, 
   generateRealtimeArrivals, 
-  getWeatherForLocation 
+  getWeatherForLocation,
+  findNearestBusStops,
+  findNearestBusStop
 } from './utils/transitUtils';
+
+import { SINGAPORE_BUS_STOPS } from './data/singaporeTransitData';
 
 import { LocationBar } from './components/LocationBar';
 import { WeatherWidget } from './components/WeatherWidget';
@@ -40,6 +48,7 @@ import { NotificationSettingsSheet } from './components/NotificationSettingsShee
 import { EditBusesModal } from './components/EditBusesModal';
 import { PWAInstallSheet } from './components/PWAInstallSheet';
 import { NotificationBanner, ToastNotification } from './components/NotificationBanner';
+import { TransitMap } from './components/TransitMap';
 
 export default function App() {
   // Current user GPS / simulated location
@@ -400,33 +409,112 @@ export default function App() {
     });
   }, [arrivalsData, activeDepartureAlerts, noticeMinutes, savedRoutes, userCoords, walkingSpeed, bufferMinutes, showToast]);
 
-  const handleUseGps = () => {
-    if (typeof navigator !== 'undefined' && 'geolocation' in navigator) {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          setUserCoords({
-            lat: pos.coords.latitude,
-            lng: pos.coords.longitude
-          });
-          setCurrentLocationName('GPS Live Location');
-          setIsGpsActive(true);
-          showToast('info', 'Location Updated', 'Using live GPS coordinates.');
-        },
-        () => {
-          setUserCoords({ lat: 1.2993, lng: 103.8453 });
-          setCurrentLocationName('Dhoby Ghaut / Orchard (GPS Mode)');
-          setIsGpsActive(true);
-          showToast('info', 'GPS Active', 'Defaulted to Central district.');
-        },
-        { enableHighAccuracy: true, timeout: 6000 }
-      );
+  // Reference for continuous watchPosition
+  const watchIdRef = useRef<number | null>(null);
+
+  const stopGpsWatch = useCallback(() => {
+    if (watchIdRef.current !== null && typeof navigator !== 'undefined' && 'geolocation' in navigator) {
+      navigator.geolocation.clearWatch(watchIdRef.current);
+      watchIdRef.current = null;
     }
-  };
+  }, []);
+
+  // Compute nearest bus stops dynamically based on user coordinates and walking speed
+  const nearestStops = useMemo(() => {
+    return findNearestBusStops(userCoords.lat, userCoords.lng, 8, walkingSpeed);
+  }, [userCoords.lat, userCoords.lng, walkingSpeed]);
+
+  const handleUseGps = useCallback(() => {
+    if (typeof navigator === 'undefined' || !('geolocation' in navigator)) {
+      showToast('info', 'GPS Unavailable', 'Geolocation is not supported by your browser.');
+      return;
+    }
+
+    stopGpsWatch();
+    setIsGpsActive(true);
+    showToast('info', 'Acquiring GPS', 'Connecting to real-time satellite coordinates...');
+
+    const id = navigator.geolocation.watchPosition(
+      (pos) => {
+        const newCoords = {
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude
+        };
+        setUserCoords(newCoords);
+        setIsGpsActive(true);
+
+        const nearest = findNearestBusStop(newCoords.lat, newCoords.lng, walkingSpeed);
+        if (nearest) {
+          setCurrentLocationName(`Near ${nearest.name} (${nearest.distanceMeters}m)`);
+        } else {
+          setCurrentLocationName('GPS Live Location');
+        }
+      },
+      (err) => {
+        console.warn('Geolocation watch error:', err);
+        setUserCoords({ lat: 1.2993, lng: 103.8453 });
+        setCurrentLocationName('Dhoby Ghaut / Orchard (GPS Default)');
+        setIsGpsActive(false);
+        showToast('info', 'GPS Permission Required', 'Defaulted to Orchard / Dhoby Ghaut central area.');
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 2000 }
+    );
+
+    watchIdRef.current = id;
+  }, [stopGpsWatch, walkingSpeed, showToast]);
+
+  // Clean up watch on unmount
+  useEffect(() => {
+    return () => {
+      stopGpsWatch();
+    };
+  }, [stopGpsWatch]);
 
   const handleSelectPreset = (name: string, lat: number, lng: number) => {
+    stopGpsWatch();
     setUserCoords({ lat, lng });
     setCurrentLocationName(name);
     setIsGpsActive(false);
+  };
+
+  const handleSelectDepartureStop = (stop: BusStop) => {
+    stopGpsWatch();
+    setUserCoords({ lat: stop.lat, lng: stop.lng });
+    setCurrentLocationName(`${stop.name} (${stop.id})`);
+    setIsGpsActive(false);
+    showToast('info', 'Origin Updated', `Departure point set to ${stop.name}.`);
+  };
+
+  const handleTrackMapService = (stop: BusStop, serviceNo: string) => {
+    const existing = savedRoutes.find((r) => r.busStopCode === stop.id);
+    if (existing) {
+      if (!existing.selectedBuses.includes(serviceNo)) {
+        handleUpdateRoute({
+          ...existing,
+          selectedBuses: [...existing.selectedBuses, serviceNo]
+        });
+        showToast('info', 'Bus Added', `Now tracking Bus ${serviceNo} at ${stop.name}.`);
+      } else {
+        showToast('info', 'Already Tracking', `Bus ${serviceNo} is already tracked at ${stop.name}.`);
+      }
+    } else {
+      const newRoute: SavedRoute = {
+        id: `sr-${stop.id}-${Date.now()}`,
+        busStopCode: stop.id,
+        busStopName: stop.name,
+        roadName: stop.road,
+        lat: stop.lat,
+        lng: stop.lng,
+        selectedBuses: [serviceNo],
+        customTag: 'Map Selection',
+        walkingSpeed: walkingSpeed,
+        manualWalkMinutes: 2,
+        alertMinutesBeforeLeave: noticeMinutes,
+        isPinned: true,
+        createdAt: Date.now()
+      };
+      handleSaveNewRoute(newRoute);
+    }
   };
 
   const handleToggleDepartureAlert = (route: SavedRoute, serviceNo: string, leaveCalc: LeaveCalculation) => {
@@ -531,6 +619,16 @@ export default function App() {
           {/* Nav links */}
           <nav className="hidden md:flex items-center gap-2 text-xs font-bold text-slate-600">
             <button
+              onClick={() => {
+                const el = document.getElementById('transit-map-section');
+                el?.scrollIntoView({ behavior: 'smooth' });
+              }}
+              className="px-3.5 py-2 rounded-full clay-pill-white text-slate-700 hover:text-sky-600 transition-colors whitespace-nowrap flex items-center gap-1.5 cursor-pointer"
+            >
+              <MapIcon className="w-3.5 h-3.5 text-sky-500" />
+              <span>Radar Map</span>
+            </button>
+            <button
               onClick={() => setIsWidgetsModalOpen(true)}
               className="px-3.5 py-2 rounded-full clay-pill-white text-slate-700 hover:text-purple-600 transition-colors whitespace-nowrap flex items-center gap-1.5"
             >
@@ -561,6 +659,14 @@ export default function App() {
               <Search className="w-3.5 h-3.5 stroke-[2.5]" />
               <span className="hidden sm:inline">Search Buses</span>
               <span className="sm:hidden">Search</span>
+            </button>
+
+            <button
+              onClick={handleCycleTheme}
+              title={`Theme: ${theme === 'pastel' ? 'Blush & Mint' : theme === 'ocean' ? 'Ocean Breeze' : 'Midnight Dark'}`}
+              className="w-9 h-9 clay-icon-btn flex items-center justify-center text-slate-600 hover:text-purple-600 cursor-pointer"
+            >
+              <Palette className="w-4 h-4" />
             </button>
 
             <button
@@ -612,6 +718,36 @@ export default function App() {
           </div>
         </div>
 
+        {/* Interactive Live Google Maps Transit Radar */}
+        <section id="transit-map-section" className="space-y-2">
+          <div className="flex items-center justify-between px-1">
+            <div className="flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-pink-400" />
+              <h3 className="text-xs font-black uppercase tracking-wider text-slate-500">
+                Interactive Transit Radar & Nearest Stops
+              </h3>
+            </div>
+            <button
+              onClick={handleUseGps}
+              className="text-xs font-bold text-pink-600 hover:text-pink-700 flex items-center gap-1 cursor-pointer"
+            >
+              <Navigation className="w-3.5 h-3.5" />
+              <span>{isGpsActive ? 'Tracking GPS' : 'Track GPS'}</span>
+            </button>
+          </div>
+
+          <TransitMap
+            userCoords={userCoords}
+            isGpsActive={isGpsActive}
+            onUseGps={handleUseGps}
+            nearestStops={nearestStops}
+            allBusStops={SINGAPORE_BUS_STOPS}
+            onSelectDepartureStop={handleSelectDepartureStop}
+            onTrackService={handleTrackMapService}
+            theme={theme}
+          />
+        </section>
+
         {/* Saved Routes & Proximity Filter Section */}
         <div className="pt-1">
           <SavedRoutesView
@@ -639,6 +775,17 @@ export default function App() {
           >
             <Bus className="w-5 h-5 stroke-[2.5]" />
             <span className="text-[10px]">Track</span>
+          </button>
+
+          <button
+            onClick={() => {
+              const el = document.getElementById('transit-map-section');
+              el?.scrollIntoView({ behavior: 'smooth' });
+            }}
+            className="flex flex-col items-center gap-0.5 text-slate-500 hover:text-sky-600 font-bold py-1.5 px-3 rounded-full hover:bg-sky-50 transition-colors cursor-pointer"
+          >
+            <MapIcon className="w-5 h-5 text-sky-500" />
+            <span className="text-[10px]">Map</span>
           </button>
 
           <button
@@ -739,6 +886,8 @@ export default function App() {
           onClose={() => setIsSettingsOpen(false)}
           noticeMinutes={noticeMinutes}
           onChangeNoticeMinutes={setNoticeMinutes}
+          theme={theme}
+          onChangeTheme={setTheme}
           soundEnabled={soundEnabled}
           onToggleSound={() => setSoundEnabled(!soundEnabled)}
           rainAlertEnabled={rainAlertEnabled}

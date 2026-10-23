@@ -64,6 +64,45 @@ export function calculateWalkMinutes(
   return Math.max(1, mins);
 }
 
+export interface BusStopWithDistance extends BusStop {
+  distanceMeters: number;
+  walkMinutes: number;
+}
+
+/**
+ * Finds the closest Singapore bus stops to the given coordinates
+ */
+export function findNearestBusStops(
+  lat: number,
+  lng: number,
+  limit: number = 6,
+  speed: 'slow' | 'normal' | 'brisk' = 'normal'
+): BusStopWithDistance[] {
+  return SINGAPORE_BUS_STOPS.map((stop) => {
+    const dist = calculateDistanceMeters(lat, lng, stop.lat, stop.lng);
+    const walkMins = calculateWalkMinutes(dist, speed);
+    return {
+      ...stop,
+      distanceMeters: dist,
+      walkMinutes: walkMins
+    };
+  })
+    .sort((a, b) => a.distanceMeters - b.distanceMeters)
+    .slice(0, limit);
+}
+
+/**
+ * Finds the single closest Singapore bus stop
+ */
+export function findNearestBusStop(
+  lat: number,
+  lng: number,
+  speed: 'slow' | 'normal' | 'brisk' = 'normal'
+): BusStopWithDistance | null {
+  const nearest = findNearestBusStops(lat, lng, 1, speed);
+  return nearest.length > 0 ? nearest[0] : null;
+}
+
 /**
  * Compute the "When to Leave" status & next option
  */
