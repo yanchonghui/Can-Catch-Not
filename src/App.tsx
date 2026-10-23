@@ -32,7 +32,8 @@ import {
   generateRealtimeArrivals, 
   getWeatherForLocation,
   findNearestBusStops,
-  findNearestBusStop
+  findNearestBusStop,
+  advanceArrivalsToPositive
 } from './utils/transitUtils';
 
 import { SINGAPORE_BUS_STOPS } from './data/singaporeTransitData';
@@ -275,7 +276,7 @@ export default function App() {
   };
 
   // Refresh Bus Arrival Data function
-  const refreshArrivals = useCallback(async () => {
+  const refreshArrivals = useCallback(async (options?: { forcePositive?: boolean }) => {
     setIsRefreshing(true);
     const newArrivals: Record<string, Record<string, BusServiceArrival>> = {};
 
@@ -323,13 +324,45 @@ export default function App() {
         // Fallback to baseArrivals seamlessly
       }
 
+      // Check walk time and if forcePositive or if departure has fallen negative
+      const dist = calculateDistanceMeters(userCoords.lat, userCoords.lng, route.lat, route.lng);
+      const walkMins = calculateWalkMinutes(dist, walkingSpeed, route.manualWalkMinutes);
+
+      for (const svcNo of route.selectedBuses) {
+        if (baseArrivals[svcNo]) {
+          const currentArr = baseArrivals[svcNo];
+          const leaveSecs = ((currentArr.nextBus?.arrivalSeconds ?? (currentArr.nextBus ? currentArr.nextBus.arrivalMinutes * 60 : 0))) - (walkMins + bufferMinutes) * 60;
+          if (options?.forcePositive || leaveSecs <= 0) {
+            const { updatedArrival } = advanceArrivalsToPositive(currentArr, walkMins, bufferMinutes);
+            baseArrivals[svcNo] = updatedArrival;
+          }
+        }
+      }
+
       newArrivals[route.busStopCode] = baseArrivals;
     }
 
     setArrivalsData(newArrivals);
     setLastRefreshedAt(new Date());
     setIsRefreshing(false);
-  }, [savedRoutes, ltaApiKey]);
+  }, [savedRoutes, ltaApiKey, userCoords, walkingSpeed, bufferMinutes]);
+
+  // Manual refresh triggered by user clicking the top Refresh button
+  const handleManualRefresh = useCallback(async () => {
+    const wasNegative = primaryBus && primaryBus.leaveCalc.leaveInMinutes <= 0;
+    await refreshArrivals({ forcePositive: true });
+    
+    if (wasNegative && primaryBus) {
+      showToast(
+        'departure',
+        `Next Bus Timing Loaded! 🚌`,
+        'Previous departure window passed. Switched to next bus timing so your timer remains positive!',
+        'Step out when you are ready.'
+      );
+    } else {
+      showToast('info', 'Bus Timings Refreshed ✨', 'Updated real-time arrivals and departure countdowns.');
+    }
+  }, [primaryBus, refreshArrivals, showToast]);
 
   // Auto-refresh interval
   useEffect(() => {
@@ -360,7 +393,9 @@ export default function App() {
         arrInfo?.nextBus,
         arrInfo?.nextBus2,
         walkMins,
-        bufferMinutes
+        bufferMinutes,
+        arrInfo?.nextBus3,
+        false
       );
 
       setPrimaryBus({
@@ -642,7 +677,7 @@ export default function App() {
               Departure Alerts
             </button>
             <button
-              onClick={refreshArrivals}
+              onClick={handleManualRefresh}
               className="px-3.5 py-2 rounded-full clay-pill-white text-slate-700 hover:text-emerald-600 transition-colors whitespace-nowrap flex items-center gap-1.5"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin text-emerald-500' : 'text-slate-400'}`} />
@@ -652,13 +687,25 @@ export default function App() {
 
           {/* Primary Action Buttons */}
           <div className="flex items-center gap-2 shrink-0">
+            {/* Top Refresh Button replacing previous search button */}
+            <button
+              onClick={handleManualRefresh}
+              disabled={isRefreshing}
+              title="Refresh bus timings & show next available bus to keep timer positive"
+              className="px-4 py-2.5 clay-btn-mint font-extrabold text-xs flex items-center gap-2 whitespace-nowrap cursor-pointer active:scale-95 transition-all shadow-md"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 stroke-[2.5] ${isRefreshing ? 'animate-spin text-white' : ''}`} />
+              <span className="hidden sm:inline">Refresh</span>
+              <span className="sm:hidden">Refresh</span>
+            </button>
+
+            {/* Quick Search Button */}
             <button
               onClick={() => setIsSearchOpen(true)}
-              className="px-4 py-2.5 clay-btn-mint font-extrabold text-xs flex items-center gap-1.5 whitespace-nowrap cursor-pointer"
+              title="Search bus stops and services"
+              className="w-9 h-9 clay-icon-btn flex items-center justify-center text-slate-600 hover:text-emerald-600 cursor-pointer"
             >
-              <Search className="w-3.5 h-3.5 stroke-[2.5]" />
-              <span className="hidden sm:inline">Search Buses</span>
-              <span className="sm:hidden">Search</span>
+              <Search className="w-4 h-4 stroke-[2.5]" />
             </button>
 
             <button
@@ -695,6 +742,7 @@ export default function App() {
                 nextBus={primaryBus.nextBus}
                 umbrellaNeeded={weather.umbrellaAdvice.bringUmbrella}
                 onOpenWidgetsModal={() => setIsWidgetsModalOpen(true)}
+                onRefresh={handleManualRefresh}
               />
             )}
 

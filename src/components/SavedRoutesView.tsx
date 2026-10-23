@@ -339,7 +339,9 @@ export const SavedRoutesView: React.FC<SavedRoutesViewProps> = ({
                       nextBus1,
                       nextBus2,
                       walkMins,
-                      1
+                      1,
+                      arrivalInfo?.nextBus3,
+                      false
                     );
 
                     const alertKey = `${route.id}_${serviceNo}`;

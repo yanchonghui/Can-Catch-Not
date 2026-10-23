@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Bus, Clock, Umbrella, ChevronUp, ChevronDown, Sparkles, Footprints } from 'lucide-react';
+import { Bus, Clock, Umbrella, ChevronUp, ChevronDown, Sparkles, Footprints, RefreshCw } from 'lucide-react';
 import { LeaveCalculation, NextBusArrival } from '../types/transit';
 
 interface LiveActivityBannerProps {
@@ -10,6 +10,7 @@ interface LiveActivityBannerProps {
   nextBus?: NextBusArrival;
   umbrellaNeeded: boolean;
   onOpenWidgetsModal: () => void;
+  onRefresh?: () => void;
 }
 
 export const LiveActivityBanner: React.FC<LiveActivityBannerProps> = ({
@@ -19,14 +20,16 @@ export const LiveActivityBanner: React.FC<LiveActivityBannerProps> = ({
   leaveCalc,
   nextBus,
   umbrellaNeeded,
-  onOpenWidgetsModal
+  onOpenWidgetsModal,
+  onRefresh
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [remainingSeconds, setRemainingSeconds] = useState(leaveCalc.leaveInSeconds);
 
+  // Sync remainingSeconds whenever leaveCalc or bus arrival changes
   useEffect(() => {
     setRemainingSeconds(leaveCalc.leaveInSeconds);
-  }, [leaveCalc.leaveInSeconds]);
+  }, [leaveCalc.leaveInSeconds, leaveCalc.busArrivalMinutes, leaveCalc.serviceNo, busStopCode, nextBus?.estimatedArrival]);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -85,13 +88,35 @@ export const LiveActivityBanner: React.FC<LiveActivityBannerProps> = ({
           {/* Right: Departure Countdown 3D Pill */}
           <div className="flex items-center gap-2.5 shrink-0">
             <div className="text-right">
-              <div className="text-[10px] text-slate-400 uppercase font-black tracking-wider">
-                Leave In
+              <div className="text-[10px] text-slate-400 uppercase font-black tracking-wider flex items-center justify-end gap-1">
+                <span>Leave In</span>
+                {remainingSeconds < 0 && onRefresh && (
+                  <span className="text-pink-600 font-extrabold text-[9px]">(Tap to refresh)</span>
+                )}
               </div>
-              <div className={`text-xs font-black px-3 py-1.5 shadow-md flex items-center gap-1 ${getUrgencyPillClass(remainingSeconds)}`}>
-                <Clock className="w-3 h-3 text-white" />
-                <span>{formatCountdown(remainingSeconds)}</span>
-              </div>
+              <button
+                onClick={() => {
+                  if (remainingSeconds < 0 && onRefresh) {
+                    onRefresh();
+                  }
+                }}
+                title={remainingSeconds < 0 ? "Timing passed. Click Refresh above or here to get the next bus!" : "Current departure countdown"}
+                className={`text-xs font-black px-3 py-1.5 shadow-md flex items-center gap-1.5 transition-all ${
+                  remainingSeconds < 0 && onRefresh ? 'cursor-pointer active:scale-95 ring-2 ring-pink-300' : ''
+                } ${getUrgencyPillClass(remainingSeconds)}`}
+              >
+                {remainingSeconds < 0 ? (
+                  <>
+                    <RefreshCw className="w-3 h-3 text-white" />
+                    <span>{formatCountdown(remainingSeconds)}</span>
+                  </>
+                ) : (
+                  <>
+                    <Clock className="w-3 h-3 text-white" />
+                    <span>{formatCountdown(remainingSeconds)}</span>
+                  </>
+                )}
+              </button>
             </div>
 
             <button
@@ -111,7 +136,13 @@ export const LiveActivityBanner: React.FC<LiveActivityBannerProps> = ({
               <div className="clay-card-pink p-3 text-center">
                 <div className="text-[10px] uppercase font-black text-pink-700/80 tracking-wider">Departure</div>
                 <div className="text-xs sm:text-sm font-black text-pink-900 mt-0.5 truncate">
-                  {leaveCalc.leaveInMinutes <= 0 ? 'Leave in 0m (NOW!)' : `Leave in ${leaveCalc.leaveInMinutes} mins`}
+                  {remainingSeconds < 0 ? (
+                    <span className="text-pink-700">Missed window</span>
+                  ) : leaveCalc.leaveInMinutes <= 0 ? (
+                    'Leave in 0m (NOW!)'
+                  ) : (
+                    `Leave in ${leaveCalc.leaveInMinutes} mins`
+                  )}
                 </div>
               </div>
 

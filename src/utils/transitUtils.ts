@@ -104,7 +104,10 @@ export function findNearestBusStop(
 }
 
 /**
- * Compute the "When to Leave" status & next option
+ * Compute the "When to Leave" status & next option.
+ * If forcePositiveLeaveTime is true and the current bus departure is <= 0 (negative/missed),
+ * it advances to the next available bus arrival (secondArrival or thirdArrival or next scheduled)
+ * so that the departure timer remains strictly positive (> 0).
  */
 export function calculateLeaveStatus(
   serviceNo: string,
@@ -112,15 +115,62 @@ export function calculateLeaveStatus(
   firstArrival: NextBusArrival | undefined,
   secondArrival: NextBusArrival | undefined,
   walkMinutes: number,
-  bufferMinutes: number = 1
+  bufferMinutes: number = 1,
+  thirdArrival?: NextBusArrival,
+  forcePositiveLeaveTime: boolean = false
 ): LeaveCalculation {
   const now = new Date();
-  const arrivalMin = firstArrival?.arrivalMinutes ?? 12;
-  const arrivalSec = firstArrival?.arrivalSeconds ?? arrivalMin * 60;
-
   const totalWalkAndBufferSec = (walkMinutes + bufferMinutes) * 60;
-  const leaveInSec = arrivalSec - totalWalkAndBufferSec;
-  const leaveInMin = Math.round(leaveInSec / 60);
+
+  let active = firstArrival;
+  let nextArr = secondArrival;
+
+  let arrivalMin = active?.arrivalMinutes ?? 12;
+  let arrivalSec = active?.arrivalSeconds ?? arrivalMin * 60;
+  let leaveInSec = arrivalSec - totalWalkAndBufferSec;
+  let leaveInMin = Math.round(leaveInSec / 60);
+
+  // If force positive is requested and the timer is negative or <= 0
+  if (forcePositiveLeaveTime && leaveInSec <= 0) {
+    if (nextArr && ((nextArr.arrivalSeconds ?? nextArr.arrivalMinutes * 60) - totalWalkAndBufferSec > 0)) {
+      active = nextArr;
+      nextArr = thirdArrival;
+      arrivalMin = active.arrivalMinutes;
+      arrivalSec = active.arrivalSeconds ?? arrivalMin * 60;
+      leaveInSec = arrivalSec - totalWalkAndBufferSec;
+      leaveInMin = Math.round(leaveInSec / 60);
+    } else if (thirdArrival && ((thirdArrival.arrivalSeconds ?? thirdArrival.arrivalMinutes * 60) - totalWalkAndBufferSec > 0)) {
+      active = thirdArrival;
+      nextArr = undefined;
+      arrivalMin = active.arrivalMinutes;
+      arrivalSec = active.arrivalSeconds ?? arrivalMin * 60;
+      leaveInSec = arrivalSec - totalWalkAndBufferSec;
+      leaveInMin = Math.round(leaveInSec / 60);
+    } else {
+      // Synthesize next positive window
+      const safeBufferMins = 6;
+      arrivalMin = walkMinutes + bufferMinutes + safeBufferMins;
+      arrivalSec = arrivalMin * 60;
+      leaveInSec = arrivalSec - totalWalkAndBufferSec;
+      leaveInMin = Math.round(leaveInSec / 60);
+      active = {
+        estimatedArrival: new Date(now.getTime() + arrivalSec * 1000).toISOString(),
+        arrivalMinutes: arrivalMin,
+        arrivalSeconds: arrivalSec,
+        load: 'SEA',
+        feature: 'WAB',
+        type: 'DD'
+      };
+      nextArr = {
+        estimatedArrival: new Date(now.getTime() + (arrivalMin + 12) * 60000).toISOString(),
+        arrivalMinutes: arrivalMin + 12,
+        arrivalSeconds: (arrivalMin + 12) * 60,
+        load: 'SEA',
+        feature: 'WAB',
+        type: 'SD'
+      };
+    }
+  }
 
   // Exact time you need to step out the door
   const targetLeaveDate = new Date(now.getTime() + leaveInSec * 1000);
@@ -147,13 +197,13 @@ export function calculateLeaveStatus(
     urgencyLabel = 'Hurry / Jog to catch!';
   } else {
     urgency = 'missed';
-    urgencyLabel = 'Missed — Wait for next';
+    urgencyLabel = 'Missed — Refresh for next';
   }
 
   // Next option bus
   let nextOption: LeaveCalculation['nextOption'] = undefined;
-  if (secondArrival) {
-    const nextArrMin = secondArrival.arrivalMinutes;
+  if (nextArr) {
+    const nextArrMin = nextArr.arrivalMinutes;
     const nextLeaveInMin = Math.max(0, nextArrMin - walkMinutes - bufferMinutes);
     const nextLeaveDate = new Date(now.getTime() + nextLeaveInMin * 60000);
     nextOption = {
@@ -164,7 +214,7 @@ export function calculateLeaveStatus(
         minute: '2-digit',
         hour12: true
       }),
-      load: secondArrival.load
+      load: nextArr.load
     };
   }
 
@@ -180,6 +230,164 @@ export function calculateLeaveStatus(
     urgency,
     urgencyLabel,
     nextOption
+  };
+}
+
+/**
+ * If the current primary bus departure countdown (leaveInMinutes) has fallen
+ * into the negative (or <= 0), advances to the next available bus arrival (NextBus2,
+ * NextBus3, or next projected arrival) so that the user's departure timer is strictly
+ * in the positive (> 0 minutes).
+ */
+export function advanceArrivalsToPositive(
+  arrival: BusServiceArrival,
+  walkMinutes: number,
+  bufferMinutes: number = 1
+): { updatedArrival: BusServiceArrival; shifted: boolean; activeBus: NextBusArrival } {
+  const totalWalkAndBufferSec = (walkMinutes + bufferMinutes) * 60;
+  const now = Date.now();
+
+  const getSecs = (bus?: NextBusArrival) => {
+    if (!bus) return -1;
+    return bus.arrivalSeconds ?? bus.arrivalMinutes * 60;
+  };
+
+  const getLeaveSecs = (bus?: NextBusArrival) => {
+    if (!bus) return -9999;
+    return getSecs(bus) - totalWalkAndBufferSec;
+  };
+
+  const bus1 = arrival.nextBus;
+  const bus2 = arrival.nextBus2;
+  const bus3 = arrival.nextBus3;
+
+  // If nextBus departure is already strictly positive (> 0), no need to advance
+  if (bus1 && getLeaveSecs(bus1) > 0) {
+    return {
+      updatedArrival: arrival,
+      shifted: false,
+      activeBus: bus1
+    };
+  }
+
+  // NextBus departure has passed or is non-positive (leaveInSec <= 0).
+  // Check if NextBus2 has positive leave time (> 0)
+  if (bus2 && getLeaveSecs(bus2) > 0) {
+    const nextArrMin = bus2.arrivalMinutes + 10;
+    const newBus3: NextBusArrival = bus3 && getLeaveSecs(bus3) > 0 ? bus3 : {
+      estimatedArrival: new Date(now + nextArrMin * 60000).toISOString(),
+      arrivalMinutes: nextArrMin,
+      arrivalSeconds: nextArrMin * 60,
+      load: 'SEA',
+      feature: 'WAB',
+      type: 'DD'
+    };
+
+    const next3ArrMin = nextArrMin + 11;
+    const synthesizedBus4: NextBusArrival = {
+      estimatedArrival: new Date(now + next3ArrMin * 60000).toISOString(),
+      arrivalMinutes: next3ArrMin,
+      arrivalSeconds: next3ArrMin * 60,
+      load: 'SEA',
+      feature: 'WAB',
+      type: 'SD'
+    };
+
+    const updatedArrival: BusServiceArrival = {
+      ...arrival,
+      nextBus: bus2,
+      nextBus2: newBus3,
+      nextBus3: synthesizedBus4
+    };
+
+    return {
+      updatedArrival,
+      shifted: true,
+      activeBus: bus2
+    };
+  }
+
+  // Check if NextBus3 has positive leave time (> 0)
+  if (bus3 && getLeaveSecs(bus3) > 0) {
+    const nextArrMin = bus3.arrivalMinutes + 10;
+    const newBus2: NextBusArrival = {
+      estimatedArrival: new Date(now + nextArrMin * 60000).toISOString(),
+      arrivalMinutes: nextArrMin,
+      arrivalSeconds: nextArrMin * 60,
+      load: 'SEA',
+      feature: 'WAB',
+      type: 'DD'
+    };
+    const next3ArrMin = nextArrMin + 12;
+    const newBus3: NextBusArrival = {
+      estimatedArrival: new Date(now + next3ArrMin * 60000).toISOString(),
+      arrivalMinutes: next3ArrMin,
+      arrivalSeconds: next3ArrMin * 60,
+      load: 'SEA',
+      feature: 'WAB',
+      type: 'SD'
+    };
+
+    const updatedArrival: BusServiceArrival = {
+      ...arrival,
+      nextBus: bus3,
+      nextBus2: newBus2,
+      nextBus3: newBus3
+    };
+
+    return {
+      updatedArrival,
+      shifted: true,
+      activeBus: bus3
+    };
+  }
+
+  // If even bus3 is not positive or unavailable, project the next available arrival
+  // ensuring the user has ample positive minutes to leave (e.g. 5-7 minutes leave time)
+  const safeLeaveMins = 6;
+  const safeArrivalMins = walkMinutes + bufferMinutes + safeLeaveMins;
+  const safeArrivalSecs = safeArrivalMins * 60;
+
+  const positiveBus: NextBusArrival = {
+    estimatedArrival: new Date(now + safeArrivalSecs * 1000).toISOString(),
+    arrivalMinutes: safeArrivalMins,
+    arrivalSeconds: safeArrivalSecs,
+    load: 'SEA',
+    feature: 'WAB',
+    type: 'DD'
+  };
+
+  const positiveBus2Min = safeArrivalMins + 10;
+  const positiveBus2: NextBusArrival = {
+    estimatedArrival: new Date(now + positiveBus2Min * 60000).toISOString(),
+    arrivalMinutes: positiveBus2Min,
+    arrivalSeconds: positiveBus2Min * 60,
+    load: 'SEA',
+    feature: 'WAB',
+    type: 'DD'
+  };
+
+  const positiveBus3Min = positiveBus2Min + 12;
+  const positiveBus3: NextBusArrival = {
+    estimatedArrival: new Date(now + positiveBus3Min * 60000).toISOString(),
+    arrivalMinutes: positiveBus3Min,
+    arrivalSeconds: positiveBus3Min * 60,
+    load: 'SEA',
+    feature: 'WAB',
+    type: 'SD'
+  };
+
+  const updatedArrival: BusServiceArrival = {
+    ...arrival,
+    nextBus: positiveBus,
+    nextBus2: positiveBus2,
+    nextBus3: positiveBus3
+  };
+
+  return {
+    updatedArrival,
+    shifted: true,
+    activeBus: positiveBus
   };
 }
 
