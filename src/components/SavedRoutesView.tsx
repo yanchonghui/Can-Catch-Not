@@ -108,11 +108,12 @@ export const SavedRoutesView: React.FC<SavedRoutesViewProps> = ({
     }
   };
 
-  const getBusColorClass = (idx: number) => {
-    const mod = idx % 3;
-    if (mod === 0) return 'clay-bus-mint';
-    if (mod === 1) return 'clay-bus-pink';
-    return 'clay-bus-lavender';
+  const getBusOrbGradient = (idx: number) => {
+    const mod = idx % 4;
+    if (mod === 0) return 'bg-gradient-to-br from-[#8B5CF6] to-[#7C3AED]';
+    if (mod === 1) return 'bg-gradient-to-br from-[#F472B6] to-[#DB2777]';
+    if (mod === 2) return 'bg-gradient-to-br from-[#34D399] to-[#059669]';
+    return 'bg-gradient-to-br from-[#38BDF8] to-[#0284C7]';
   };
 
   return (
@@ -126,14 +127,14 @@ export const SavedRoutesView: React.FC<SavedRoutesViewProps> = ({
               onClick={() => setFilterMode('near')}
               className={`px-4 py-2 text-xs font-black rounded-full transition-all flex items-center gap-2 cursor-pointer ${
                 filterMode === 'near'
-                  ? 'clay-btn-mint shadow-md'
-                  : 'text-slate-600 hover:text-slate-900'
+                  ? 'clay-btn btn-mint text-white shadow-md'
+                  : 'text-[#635F69] hover:text-[#332F3A]'
               }`}
             >
               <Navigation className="w-3.5 h-3.5" />
               <span>Near Me (≤ 2 km)</span>
               <span className={`text-[10px] font-black px-2 py-0.2 rounded-full ${
-                filterMode === 'near' ? 'bg-white/20 text-white' : 'clay-pill-white text-slate-700'
+                filterMode === 'near' ? 'bg-white/20 text-white' : 'clay-pill-white text-[#332F3A]'
               }`}>
                 {nearRoutes.length}
               </span>
@@ -143,14 +144,14 @@ export const SavedRoutesView: React.FC<SavedRoutesViewProps> = ({
               onClick={() => setFilterMode('all')}
               className={`px-4 py-2 text-xs font-black rounded-full transition-all flex items-center gap-2 cursor-pointer ${
                 filterMode === 'all'
-                  ? 'clay-btn-lavender shadow-md'
-                  : 'text-slate-600 hover:text-slate-900'
+                  ? 'clay-btn btn-primary text-white shadow-md'
+                  : 'text-[#635F69] hover:text-[#332F3A]'
               }`}
             >
               <Compass className="w-3.5 h-3.5" />
               <span>All Saved Stops</span>
               <span className={`text-[10px] font-black px-2 py-0.2 rounded-full ${
-                filterMode === 'all' ? 'bg-white/20 text-white' : 'clay-pill-white text-slate-700'
+                filterMode === 'all' ? 'bg-white/20 text-white' : 'clay-pill-white text-[#332F3A]'
               }`}>
                 {savedRoutes.length}
               </span>
@@ -159,7 +160,7 @@ export const SavedRoutesView: React.FC<SavedRoutesViewProps> = ({
 
           <button
             onClick={onOpenSearch}
-            className="flex items-center gap-1.5 px-4 py-2.5 clay-btn-pink text-xs font-black shadow-md cursor-pointer shrink-0"
+            className="flex items-center gap-1.5 px-4 py-2.5 clay-btn btn-pink text-xs font-black shadow-md cursor-pointer shrink-0 h-10"
           >
             <Plus className="w-4 h-4 stroke-[2.5]" />
             <span>Add Bus Stop</span>
@@ -321,8 +322,8 @@ export const SavedRoutesView: React.FC<SavedRoutesViewProps> = ({
                 </div>
               </div>
 
-              {/* Buses Grid / Rows */}
-              <div className="p-3 sm:p-5 divide-y divide-purple-100/40">
+              {/* Buses Grid / Rows with Variation 8 Recessed Clay Style */}
+              <div className="p-3 sm:p-5 space-y-3">
                 {route.selectedBuses.length === 0 ? (
                   <div className="text-center py-5 text-xs font-bold text-slate-400">
                     No buses selected. Tap the sliders icon to choose buses to track.
@@ -354,34 +355,34 @@ export const SavedRoutesView: React.FC<SavedRoutesViewProps> = ({
                         onPointerDown={() => handlePointerDown(serviceNo, route.busStopCode)}
                         onPointerUp={handlePointerUpOrLeave}
                         onPointerLeave={handlePointerUpOrLeave}
-                        className={`py-3.5 first:pt-1 last:pb-1 transition-all rounded-[20px] select-none ${
-                          isPressing === pressingKey ? 'bg-purple-100/40 scale-[0.99]' : ''
+                        className={`recessed p-4 transition-all select-none ${
+                          isPressing === pressingKey ? 'scale-[0.99] opacity-90' : 'hover:shadow-inner'
                         }`}
                       >
                         <div className="flex items-start justify-between gap-3">
-                          {/* Left: Bus Badge & Info */}
-                          <div className="flex items-center gap-3">
-                            <div className={`w-12 h-12 ${getBusColorClass(busIdx)} flex items-center justify-center font-black text-base shrink-0 shadow-md`}>
+                          {/* Left: Bus Orb & Info */}
+                          <div className="flex items-center gap-3.5">
+                            <div className={`bus-orb ${getBusOrbGradient(busIdx)} shadow-md shrink-0 nunito font-black text-lg`}>
                               {serviceNo}
                             </div>
                             <div>
                               <div className="flex items-center gap-2">
-                                <span className="text-sm font-black text-slate-800">
+                                <span className="text-sm font-black text-[#332F3A] nunito">
                                   Bus {serviceNo}
                                 </span>
                                 {nextBus1?.type && (
-                                  <span className="text-[10px] font-mono font-bold clay-inset px-1.5 py-0.2 text-slate-500">
+                                  <span className="text-[10px] font-mono font-bold clay-inset px-2 py-0.5 text-slate-500">
                                     {nextBus1.type}
                                   </span>
                                 )}
                                 {nextBus1?.feature === 'WAB' && (
                                   <span title="Wheelchair Accessible">
-                                    <Accessibility className="w-3.5 h-3.5 text-emerald-600" />
+                                    <Accessibility className="w-3.5 h-3.5 text-[#10B981]" />
                                   </span>
                                 )}
                               </div>
-                              <div className="flex items-center gap-2 mt-0.5">
-                                <span className="text-xs font-extrabold text-slate-700">
+                              <div className="flex items-center gap-2 mt-1">
+                                <span className="text-xs font-extrabold text-[#332F3A]">
                                   {nextBus1 ? `Arr in ${nextBus1.arrivalMinutes}m` : 'Arriving soon'}
                                 </span>
                                 {getLoadBadge(nextBus1?.load)}
@@ -389,36 +390,36 @@ export const SavedRoutesView: React.FC<SavedRoutesViewProps> = ({
                             </div>
                           </div>
 
-                          {/* Right: When To Leave 3D Bento Pill */}
+                          {/* Right: When To Leave Bento Pill */}
                           <div className="text-right shrink-0">
-                            <div className="text-[10px] uppercase font-black text-slate-400 tracking-wider">
+                            <div className="text-[10px] uppercase font-black text-[#635F69] tracking-wider">
                               Departure
                             </div>
-                            <div className="text-sm font-black font-mono tabular-nums">
+                            <div className="text-sm font-black font-mono tabular-nums mt-0.5">
                               {leaveCalc.leaveInMinutes <= 0 ? (
-                                <span className="clay-badge-pink px-2.5 py-0.5 inline-block font-black text-pink-700">
-                                  Leave in 0m (NOW!)
+                                <span className="clay-badge-pink px-2.5 py-0.5 inline-block font-black text-[#DB2777]">
+                                  Leave now (0m)!
                                 </span>
                               ) : (
-                                <span className="clay-badge-mint px-2.5 py-0.5 inline-block font-black text-emerald-700">
+                                <span className="clay-badge-mint px-2.5 py-0.5 inline-block font-black text-[#065F46]">
                                   Leave in {leaveCalc.leaveInMinutes} mins
                                 </span>
                               )}
                             </div>
-                            <div className="text-[11px] font-bold text-slate-500 font-mono mt-0.5">
+                            <div className="text-[11px] font-bold text-[#635F69] font-mono mt-0.5">
                               By {leaveCalc.leaveByTimeFormatted}
                             </div>
                           </div>
                         </div>
 
                         {/* Subsequent Bus (Next Option) & Action Buttons */}
-                        <div className="mt-3 pt-2.5 border-t border-purple-100/50 flex items-center justify-between gap-2 text-xs">
+                        <div className="mt-3 pt-2.5 border-t border-[#d9d4e3]/60 flex items-center justify-between gap-2 text-xs">
                           {/* Next Option Info */}
-                          <div className="min-w-0 text-[11px] font-bold text-slate-500 truncate flex items-center gap-1.5">
-                            <Clock className="w-3.5 h-3.5 text-purple-400 shrink-0" />
+                          <div className="min-w-0 text-[11px] font-bold text-[#635F69] truncate flex items-center gap-1.5">
+                            <Clock className="w-3.5 h-3.5 text-[#7C3AED] shrink-0" />
                             {leaveCalc.nextOption ? (
                               <span className="truncate">
-                                Subsequent: <strong className="text-slate-800">in {leaveCalc.nextOption.arrivalMinutes}m</strong> (Leave in {leaveCalc.nextOption.leaveInMinutes}m)
+                                Subsequent: <strong className="text-[#332F3A]">in {leaveCalc.nextOption.arrivalMinutes}m</strong> (Leave in {leaveCalc.nextOption.leaveInMinutes}m)
                               </span>
                             ) : (
                               <span>Subsequent bus in ~15 mins</span>
@@ -433,7 +434,7 @@ export const SavedRoutesView: React.FC<SavedRoutesViewProps> = ({
                                 onSelectPrimaryBus(serviceNo, route.busStopCode, route.busStopName, leaveCalc, nextBus1);
                               }}
                               title="Pin to Live Activity / Dynamic Island"
-                              className="w-7 h-7 clay-icon-btn flex items-center justify-center text-slate-400 hover:text-purple-600 cursor-pointer"
+                              className="w-8 h-8 clay-icon-btn flex items-center justify-center text-slate-400 hover:text-[#7C3AED] cursor-pointer"
                             >
                               <Sparkles className="w-3.5 h-3.5 text-amber-500" />
                             </button>
@@ -444,10 +445,10 @@ export const SavedRoutesView: React.FC<SavedRoutesViewProps> = ({
                                 onToggleDepartureAlert(route, serviceNo, leaveCalc);
                               }}
                               title={isAlertActive ? 'Departure alert active' : 'Set departure alert'}
-                              className={`px-3 py-1 rounded-full text-[11px] font-black transition-all flex items-center gap-1 cursor-pointer ${
+                              className={`px-3 py-1.5 rounded-full text-[11px] font-black transition-all flex items-center gap-1 cursor-pointer ${
                                 isAlertActive
-                                  ? 'clay-btn-pink shadow-xs'
-                                  : 'clay-pill-white text-slate-600 hover:text-pink-600'
+                                  ? 'clay-btn btn-pink text-white shadow-xs h-7'
+                                  : 'clay-pill-white text-[#332F3A] hover:text-[#DB2777]'
                               }`}
                             >
                               {isAlertActive ? (
@@ -468,7 +469,7 @@ export const SavedRoutesView: React.FC<SavedRoutesViewProps> = ({
                                 e.stopPropagation();
                                 onPeekRoute(serviceNo, route.busStopCode);
                               }}
-                              className="px-3 py-1 rounded-full clay-pill-white text-slate-600 hover:text-purple-600 transition-all text-[11px] font-bold flex items-center gap-1 cursor-pointer"
+                              className="px-3 py-1.5 rounded-full clay-pill-white text-[#332F3A] hover:text-[#7C3AED] transition-all text-[11px] font-bold flex items-center gap-1 cursor-pointer"
                               title="Long press or tap to peek full route"
                             >
                               <Eye className="w-3 h-3 text-slate-400" />

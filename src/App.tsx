@@ -626,11 +626,11 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#FFF5F7] via-[#FAF7FF] to-[#F0FDF8] text-slate-800 flex flex-col antialiased relative overflow-x-hidden selection:bg-pink-200 selection:text-pink-900">
-      {/* Studio Lighting Ambient Glow Orbs */}
-      <div className="fixed top-[-100px] left-[-100px] w-96 h-96 bg-pink-200/40 rounded-full blur-3xl pointer-events-none z-0" />
-      <div className="fixed top-[20%] right-[-120px] w-96 h-96 bg-purple-200/35 rounded-full blur-3xl pointer-events-none z-0" />
-      <div className="fixed bottom-[-100px] left-[20%] w-96 h-96 bg-emerald-100/40 rounded-full blur-3xl pointer-events-none z-0" />
+    <div className="min-h-screen bg-[#F4F1FA] text-[#332F3A] flex flex-col antialiased relative overflow-x-hidden selection:bg-purple-200 selection:text-purple-900">
+      {/* Variation 8 Animated Ambient Blobs */}
+      <div className="blob bg-[#7C3AED] w-[450px] h-[450px] -top-20 -left-20" />
+      <div className="blob bg-[#DB2777] w-[350px] h-[350px] top-1/2 -right-20" />
+      <div className="blob bg-[#0EA5E9] w-[400px] h-[400px] -bottom-20 left-1/3" />
 
       {/* Toast Notifications */}
       <NotificationBanner
@@ -638,49 +638,49 @@ export default function App() {
         onDismiss={dismissToast}
       />
 
-      {/* Cute Claymorphic Header */}
+      {/* Variation 8 Claymorphic Header */}
       <header className="sticky top-0 z-40 px-3 sm:px-6 py-3 pt-safe">
         <div className="max-w-5xl mx-auto clay-card px-4 sm:px-6 py-3 flex items-center justify-between gap-4">
           {/* Brand Wordmark & Mascot */}
-          <a href="/" className="text-base sm:text-lg font-black tracking-tight text-slate-800 whitespace-nowrap shrink-0 flex items-center gap-2.5">
-            <span className="w-9 h-9 clay-bus-mint flex items-center justify-center font-black shadow-md">
+          <a href="/" className="text-base sm:text-lg font-black tracking-tight text-[#332F3A] whitespace-nowrap shrink-0 flex items-center gap-2.5">
+            <span className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-[#7C3AED] to-[#A78BFA] text-white flex items-center justify-center font-black shadow-md">
               <Bus className="w-5 h-5 text-white stroke-[2.5]" />
             </span>
-            <span className="font-extrabold">
-              Can Catch <span className="text-pink-500">Not?</span> <span className="text-sm">✨</span>
+            <span className="nunito font-extrabold text-base sm:text-lg">
+              Can Catch <span className="text-[#DB2777]">Not?</span> <span className="text-sm">✨</span>
             </span>
           </a>
 
           {/* Nav links */}
-          <nav className="hidden md:flex items-center gap-2 text-xs font-bold text-slate-600">
+          <nav className="hidden md:flex items-center gap-2 text-xs font-bold text-[#635F69]">
             <button
               onClick={() => {
                 const el = document.getElementById('transit-map-section');
                 el?.scrollIntoView({ behavior: 'smooth' });
               }}
-              className="px-3.5 py-2 rounded-full clay-pill-white text-slate-700 hover:text-sky-600 transition-colors whitespace-nowrap flex items-center gap-1.5 cursor-pointer"
+              className="px-3.5 py-2 rounded-full clay-pill-white text-[#332F3A] hover:text-[#0EA5E9] transition-colors whitespace-nowrap flex items-center gap-1.5 cursor-pointer font-extrabold"
             >
-              <MapIcon className="w-3.5 h-3.5 text-sky-500" />
+              <MapIcon className="w-3.5 h-3.5 text-[#0EA5E9]" />
               <span>Radar Map</span>
             </button>
             <button
               onClick={() => setIsWidgetsModalOpen(true)}
-              className="px-3.5 py-2 rounded-full clay-pill-white text-slate-700 hover:text-purple-600 transition-colors whitespace-nowrap flex items-center gap-1.5"
+              className="px-3.5 py-2 rounded-full clay-pill-white text-[#332F3A] hover:text-[#7C3AED] transition-colors whitespace-nowrap flex items-center gap-1.5 font-extrabold"
             >
               <span>iOS Widgets</span>
               <span className="text-[10px] clay-badge-lavender px-1.5 py-0.2">iOS</span>
             </button>
             <button
               onClick={() => setIsSettingsOpen(true)}
-              className="px-3.5 py-2 rounded-full clay-pill-white text-slate-700 hover:text-pink-600 transition-colors whitespace-nowrap"
+              className="px-3.5 py-2 rounded-full clay-pill-white text-[#332F3A] hover:text-[#DB2777] transition-colors whitespace-nowrap font-extrabold"
             >
               Departure Alerts
             </button>
             <button
               onClick={handleManualRefresh}
-              className="px-3.5 py-2 rounded-full clay-pill-white text-slate-700 hover:text-emerald-600 transition-colors whitespace-nowrap flex items-center gap-1.5"
+              className="px-3.5 py-2 rounded-full clay-pill-white text-[#332F3A] hover:text-[#10B981] transition-colors whitespace-nowrap flex items-center gap-1.5 font-extrabold"
             >
-              <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin text-emerald-500' : 'text-slate-400'}`} />
+              <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin text-[#10B981]' : 'text-slate-400'}`} />
               <span>Sync ETAs</span>
             </button>
           </nav>
@@ -692,18 +692,17 @@ export default function App() {
               onClick={handleManualRefresh}
               disabled={isRefreshing}
               title="Refresh bus timings & show next available bus to keep timer positive"
-              className="px-4 py-2.5 clay-btn-mint font-extrabold text-xs flex items-center gap-2 whitespace-nowrap cursor-pointer active:scale-95 transition-all shadow-md"
+              className="px-4 py-2.5 clay-btn btn-mint font-black text-xs flex items-center gap-2 whitespace-nowrap cursor-pointer active:scale-95 transition-all shadow-md h-10"
             >
               <RefreshCw className={`w-3.5 h-3.5 stroke-[2.5] ${isRefreshing ? 'animate-spin text-white' : ''}`} />
-              <span className="hidden sm:inline">Refresh</span>
-              <span className="sm:hidden">Refresh</span>
+              <span>Refresh</span>
             </button>
 
             {/* Quick Search Button */}
             <button
               onClick={() => setIsSearchOpen(true)}
               title="Search bus stops and services"
-              className="w-9 h-9 clay-icon-btn flex items-center justify-center text-slate-600 hover:text-emerald-600 cursor-pointer"
+              className="w-10 h-10 clay-icon-btn flex items-center justify-center text-[#332F3A] hover:text-[#7C3AED] cursor-pointer"
             >
               <Search className="w-4 h-4 stroke-[2.5]" />
             </button>
@@ -711,7 +710,7 @@ export default function App() {
             <button
               onClick={handleCycleTheme}
               title={`Theme: ${theme === 'pastel' ? 'Blush & Mint' : theme === 'ocean' ? 'Ocean Breeze' : 'Midnight Dark'}`}
-              className="w-9 h-9 clay-icon-btn flex items-center justify-center text-slate-600 hover:text-purple-600 cursor-pointer"
+              className="w-10 h-10 clay-icon-btn flex items-center justify-center text-[#332F3A] hover:text-[#7C3AED] cursor-pointer"
             >
               <Palette className="w-4 h-4" />
             </button>
@@ -719,7 +718,7 @@ export default function App() {
             <button
               onClick={() => setIsSettingsOpen(true)}
               title="Preferences"
-              className="w-9 h-9 clay-icon-btn flex items-center justify-center text-slate-600 hover:text-pink-600 cursor-pointer"
+              className="w-10 h-10 clay-icon-btn flex items-center justify-center text-[#332F3A] hover:text-[#DB2777] cursor-pointer"
             >
               <SlidersHorizontal className="w-4 h-4" />
             </button>

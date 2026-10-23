@@ -45,24 +45,24 @@ export const WeatherWidget: React.FC<WeatherWidgetProps> = ({
         {/* Temperature & Condition */}
         <div className="min-w-0 flex-1">
           <div className="flex items-baseline gap-2.5 flex-wrap">
-            <span className="text-3xl sm:text-4xl font-black font-sans tracking-tight text-slate-800">
+            <span className="text-3xl sm:text-4xl font-black nunito tracking-tight text-[#332F3A]">
               {weather.temperature}
-              <span className="text-2xl sm:text-3xl font-extrabold text-slate-500 ml-0.5">°C</span>
+              <span className="text-2xl sm:text-3xl font-extrabold text-[#635F69] ml-0.5">°C</span>
             </span>
-            <span className="text-xs sm:text-sm font-extrabold text-slate-700 bg-white/80 px-2.5 py-0.5 rounded-full shadow-xs border border-white">
+            <span className="text-xs sm:text-sm font-extrabold text-[#332F3A] bg-white/80 px-2.5 py-0.5 rounded-full shadow-xs border border-white">
               {weather.condition}
             </span>
           </div>
 
           {/* Location & Environment Stats */}
-          <div className="text-xs font-bold text-slate-500 mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-1">
-            <span className="text-slate-700 font-extrabold">{weather.area}</span>
+          <div className="text-xs font-bold text-[#635F69] mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-1">
+            <span className="text-[#332F3A] font-extrabold">{weather.area}</span>
             <span className="inline-flex items-center gap-1 bg-sky-50/80 text-sky-700 px-2 py-0.5 rounded-full text-[11px] font-extrabold border border-sky-100">
-              <Droplets className="w-3 h-3 text-sky-500" />
+              <Droplets className="w-3 h-3 text-[#0EA5E9]" />
               <span>{weather.humidity}%</span>
             </span>
             <span className="inline-flex items-center gap-1 bg-purple-50/80 text-purple-700 px-2 py-0.5 rounded-full text-[11px] font-extrabold border border-purple-100">
-              <Wind className="w-3 h-3 text-purple-400" />
+              <Wind className="w-3 h-3 text-[#7C3AED]" />
               <span>{weather.windSpeed}</span>
             </span>
           </div>
@@ -120,7 +120,7 @@ export const WeatherWidget: React.FC<WeatherWidgetProps> = ({
 
           <div className="flex-1 min-w-0">
             <div className="flex items-center justify-between gap-2 flex-wrap">
-              <h4 className="font-black text-slate-800 text-sm sm:text-base leading-tight">
+              <h4 className="font-black nunito text-[#332F3A] text-sm sm:text-base leading-tight">
                 {weather.umbrellaAdvice.bringUmbrella ? 'Bring an Umbrella! ☂️' : 'No Umbrella Needed ☀️'}
               </h4>
               <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${
@@ -131,7 +131,7 @@ export const WeatherWidget: React.FC<WeatherWidgetProps> = ({
             </div>
 
             {/* Explanatory sentence: Fully visible without any truncation */}
-            <p className="text-xs font-bold text-slate-600 mt-1 leading-relaxed break-words">
+            <p className="text-xs font-bold text-[#635F69] mt-1 leading-relaxed break-words">
               {weather.umbrellaAdvice.reason}
             </p>
           </div>

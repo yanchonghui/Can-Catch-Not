@@ -67,19 +67,19 @@ export const LiveActivityBanner: React.FC<LiveActivityBannerProps> = ({
         <div className="flex items-center justify-between gap-3">
           {/* Left: Bus Service and Stop Title */}
           <div className="flex items-center gap-3.5 min-w-0">
-            <div className="w-12 h-12 clay-bus-mint flex items-center justify-center font-black text-lg shadow-md shrink-0">
+            <div className="bus-orb bg-gradient-to-br from-[#8B5CF6] to-[#7C3AED] shadow-md shrink-0 nunito font-black text-xl">
               {busServiceNo}
             </div>
             <div className="truncate">
               <div className="flex items-center gap-2">
-                <span className="text-sm sm:text-base font-black text-slate-800 truncate">
+                <span className="text-base sm:text-lg font-black text-[#332F3A] nunito truncate">
                   Bus {busServiceNo}
                 </span>
-                <span className="text-xs font-mono font-bold clay-inset px-2 py-0.5 text-slate-500">
+                <span className="text-xs font-mono font-bold clay-inset px-2.5 py-0.5 text-slate-500">
                   #{busStopCode}
                 </span>
               </div>
-              <div className="text-xs font-bold text-slate-500 truncate mt-0.5">
+              <div className="text-xs font-bold text-[#635F69] truncate mt-0.5">
                 {busStopName}
               </div>
             </div>
